@@ -7,3 +7,9 @@ local.properties
 captures/
 artifacts/
 
+*.apk
+*.jks
+*.keystore
+*.p12
+.env
+.env.*
