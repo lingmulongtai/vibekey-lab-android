@@ -117,9 +117,12 @@ public class CompanionTest {
         getInstrumentation().runOnMainSync(() -> assertEquals(expected, nestedScroll(activity.getWindow().getDecorView()).getScrollY() - direct.get(), 1));
         assertNull(ScrollService.current());
     }
-    @Test public void testLaunchRequiresNoDangerousPermissionsOrEnabledService() throws Exception {
+    @Test public void testLaunchOnlyDeclaresUpdatePermissionsAndLeavesServiceDisabled() throws Exception {
         PackageInfo info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), android.content.pm.PackageManager.GET_PERMISSIONS);
-        assertTrue(info.requestedPermissions == null || info.requestedPermissions.length == 0);
+        assertNotNull(info.requestedPermissions);
+        assertEquals(java.util.Set.of(android.Manifest.permission.INTERNET,
+                        android.Manifest.permission.REQUEST_INSTALL_PACKAGES),
+                new java.util.HashSet<>(java.util.Arrays.asList(info.requestedPermissions)));
         assertNull(ScrollService.current());
         getInstrumentation().runOnMainSync(() -> assertNull(button(activity.getWindow().getDecorView(), "他アプリで使う")));
         click("詳細設定"); click("他アプリで使う");

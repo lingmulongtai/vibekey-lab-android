@@ -29,6 +29,9 @@ public final class MainActivity extends Activity implements InputManager.InputDe
     private boolean boardVisible, connectionVisible;
     private Runnable refreshPanel;
     private TextView panelFeedback;
+    private AppUpdates updates;
+    private Button updateButton;
+    private final Runnable updateListener = this::renderUpdateButton;
     private DeviceProfile profile;
     private LinearLayout page;
     private TextView status;
@@ -49,6 +52,7 @@ public final class MainActivity extends Activity implements InputManager.InputDe
         controls = profile.panelInputs();
         updateSelectionSnapshot();
         panelSettings = getSharedPreferences("control_panel", MODE_PRIVATE);
+        updates = AppUpdates.get(this);
         home();
         getSystemService(InputManager.class).registerInputDeviceListener(this, new android.os.Handler(getMainLooper()));
         getWindow().getDecorView().setOnApplyWindowInsetsListener((view, insets) -> {
@@ -56,11 +60,32 @@ public final class MainActivity extends Activity implements InputManager.InputDe
                     insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets;
         });
     }
+    @Override protected void onStart() {
+        super.onStart();
+        updates.observe(updateListener);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        updates.check(false);
+    }
+
+    @Override protected void onStop() {
+        updates.remove(updateListener);
+        super.onStop();
+    }
+
+    private void renderUpdateButton() {
+        if (updateButton == null) return;
+        String version = updates.availableVersion();
+        updateButton.setText(version == null ? "アプリの更新" : "アプリの更新 • " + version);
+    }
+
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void screen(String title) {
         previewVisible = false; engine.clear(); fractional = 0; learning = null; status = null;
         boardVisible = false; connectionVisible = false; learningControl = null;
-        refreshPanel = null; panelFeedback = null; panelGeneration++;
+        refreshPanel = null; panelFeedback = null; updateButton = null; panelGeneration++;
         page = new LinearLayout(this); page.setOrientation(LinearLayout.VERTICAL);
         page.setPadding(dp(20), dp(16), dp(20), dp(24)); page.setBackgroundColor(0xfff5f7fa);
         ScrollView outer = new ScrollView(this); outer.setFillViewport(true); outer.addView(page); setContentView(outer);
@@ -71,9 +96,10 @@ public final class MainActivity extends Activity implements InputManager.InputDe
         TextView view = new TextView(this); view.setText(value); view.setTextSize(size);
         view.setTextColor(0xff152132); view.setPadding(0, dp(8), 0, dp(8)); page.addView(view); return view;
     }
-    private void button(String label, Runnable action) {
+    private Button button(String label, Runnable action) {
         Button button = new Button(this); button.setText(label); button.setAllCaps(false);
         page.addView(button, new LinearLayout.LayoutParams(-1, -2)); button.setOnClickListener(v -> action.run());
+        return button;
     }
     private void message(String value) { Toast.makeText(this, value, Toast.LENGTH_LONG).show(); }
     private void home() {
@@ -85,6 +111,8 @@ public final class MainActivity extends Activity implements InputManager.InputDe
         button("3  回転だけを診断・保存", this::diagnosticScreen);
         button("接続状態を確認", this::connectionScreen);
         button("詳細設定（任意）", this::advancedScreen);
+        updateButton = button("アプリの更新", () -> startActivity(new Intent(this, UpdateActivity.class)));
+        renderUpdateButton();
         text("診断ファイルは縦回転量と相対時間のみ。キー入力・識別子・画面内容は含めません。自動的な権限要求や他アプリの操作は行いません。", 14);
     }
     private void connectionScreen() {
